@@ -1,10 +1,14 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { AuthService } from './auth/auth-service';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  title = 'auth-test-angular';
+  public readonly auth = inject(AuthService);
+
+  public signIn(): void {
+    location.href = `https://local.swit.dev:1201/oauth/sign-in/organization?redirectUri=${encodeURIComponent(location.href)}`;
+  }
 }
