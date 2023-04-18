@@ -1,20 +1,48 @@
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
+import { AUTH_HOST } from "../env";
 import { ChannelMessageData } from "./auth.model";
+
+export const bootstrapWithFrameWindow = (frameWindow: Window): Promise<void> => {
+  return new Promise<void>(resolve => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.key === 'SWIT_AUTH_APP_BOOTSTRAP' && frameWindow === event.source) {
+        resolve();
+        window.removeEventListener('message', onMessage);
+      }
+    }
+    window.addEventListener('message', onMessage);
+  });
+}
+
+export const handshakeWithFrameWindow = (frameWindow: Window): Promise<MessagePort> => {
+  return new Promise(resolve => {
+    const channel = new MessageChannel();
+    channel.port1.addEventListener('message', () => {
+      resolve(channel.port1);
+    });
+    channel.port1.start();
+    frameWindow.postMessage({
+      key: 'SWIT_AUTH_HANDSHAKE_REQUEST'
+    }, '*', [channel.port2])
+  });
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthDaemon {
 
+  private static DAEMON_ID = `swit-auth-daemon`;
+
   private readonly _daemon: HTMLIFrameElement = (() => {
-    const exist = document.getElementById('swit-auth-daemon') as HTMLIFrameElement;
+    const exist = document.getElementById(AuthDaemon.DAEMON_ID) as HTMLIFrameElement;
     if (exist) {
       return exist;
     }
     const frame = document.createElement('iframe');
-    frame.id = `swit-auth-daemon`;
-    frame.src = `https://local.swit.dev:1201`;
+    frame.id = AuthDaemon.DAEMON_ID;
+    frame.src = `${AUTH_HOST}/daemon`;
     frame.style.display = `none`;
     document.body.appendChild(frame);
     return frame;
@@ -23,34 +51,9 @@ export class AuthDaemon {
   private port!: MessagePort;
 
   public async initialize(): Promise<void> {
-    await this.waitUntilBootstrap();
-    this.port = await this.waitUntilHandshake();
+    await bootstrapWithFrameWindow(this._daemon.contentWindow!);
+    this.port = await handshakeWithFrameWindow(this._daemon.contentWindow!);
     console.log('auth daemon initialized');
-  }
-
-  private waitUntilBootstrap(): Promise<void> {
-    return new Promise<void>(resolve => {
-      const onMessage = (event: MessageEvent) => {
-        if (event.data?.key === 'SWIT_AUTH_APP_BOOTSTRAP') {
-          resolve();
-          window.removeEventListener('message', onMessage);
-        }
-      }
-      window.addEventListener('message', onMessage);
-    })
-  }
-
-  private waitUntilHandshake(): Promise<MessagePort> {
-    return new Promise(resolve => {
-      const channel = new MessageChannel();
-      channel.port1.addEventListener('message', () => {
-        resolve(channel.port1);
-      });
-      channel.port1.start();
-      this._daemon.contentWindow!.postMessage({
-        key: 'SWIT_AUTH_HANDSHAKE_REQUEST'
-      }, '*', [channel.port2])
-    });
   }
 
   public listen<T>(

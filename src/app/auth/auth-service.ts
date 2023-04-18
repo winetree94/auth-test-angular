@@ -10,11 +10,15 @@ export class AuthService {
   private readonly _daemon = inject(AuthDaemon);
 
   public account: SwitAccount | null = null;
+  public accounts: SwitAccount[] = [];
 
   public async initialize() {
     const account = await this.getCurrentAccount();
+    const accounts = await this.getAccounts();
     this.account = account;
+    this.accounts = accounts;
     this.currentAccountChange$().subscribe((account) => this.account = account);
+    this.accountsChange$().subscribe((accounts) => this.accounts = accounts);
     console.log('auth service initialized');
   }
 
@@ -27,8 +31,8 @@ export class AuthService {
 
   public async getAccounts(): Promise<SwitAccount[]> {
     return this._daemon.invoke<void, SwitAccount[]>(
-      'SWIT_AUTH_GET_SIGNED_ACCOUNT',
-      'SWIT_AUTH_GET_SIGNED_ACCOUNT_RESPONSE'
+      'SWIT_AUTH_GET_ACCOUNTS',
+      'SWIT_AUTH_GET_ACCOUNTS_RESPONSE'
     ).then((event) => event.data.data);
   }
 
@@ -40,7 +44,13 @@ export class AuthService {
   }
 
   public currentAccountChange$(): Observable<SwitAccount | null> {
-    return this._daemon.listen$<SwitAccount | null>('AUTH_CURRENT_ACCOUNT_CHANGE').pipe(
+    return this._daemon.listen$<SwitAccount | null>('SWIT_AUTH_CURRENT_ACCOUNT_CHANGE').pipe(
+      map((event) => event.data.data),
+    )
+  }
+
+  public accountsChange$(): Observable<SwitAccount[]> {
+    return this._daemon.listen$<SwitAccount[]>('SWIT_AUTH_ACCOUNTS_CHANGE').pipe(
       map((event) => event.data.data),
     )
   }

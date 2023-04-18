@@ -5,5 +5,15 @@
     <button *ngIf="auth.account" (click)="auth.signOut()">sign out</button>
   </div>
 </div>
+
+<ng-container *ngIf="auth.account">
+  <div>
+    <button (click)="ui = !ui">Auth UI Toggle</button>
+  </div>
+  <div >
+    <swit-accounts *ngIf="ui"></swit-accounts>
+  </div>
+</ng-container>
+
 <router-outlet></router-outlet>
 
